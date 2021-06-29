@@ -1,0 +1,85 @@
+version: "2.1"
+x-logging: 
+  &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+services:
+  pa-api-storage:
+    container_name: pa-api-storage
+    logging: *default-logging
+    build: ./pa-api-storage
+    env_file:
+      - ./pa-api-storage/.env
+    volumes:
+      - /.keys:/.keys
+      - /data/volumes/vol1:/storages/storage1 # this is tmp way to connect a volume to the service
+    depends_on:
+      - pa-storage-db
+  pa-storage-db:
+    container_name: storage-db
+    logging: *default-logging
+    restart: always
+    ports:
+      - "27718:27017"
+    build: ./pa-storage-db
+    volumes:
+      - ./data/mongodb/pa-storage-db:/data/db
+    env_file:
+      - ./pa-storage-db/.env
+  pa-api-users:
+    container_name: pa-api-users
+    logging: *default-logging
+    build: ./pa-api-users
+    env_file:
+      - ./pa-api-users/.env
+    volumes:
+      - /.keys:/.keys
+    depends_on:
+      - pa-users-db
+  pa-api-auth:
+    container_name: pa-api-auth
+    logging: *default-logging
+    build: ./pa-api-auth
+    env_file:
+      - ./pa-api-auth/.env
+    volumes:
+      - /.keys:/.keys
+    depends_on:
+      - pa-users-db
+  pa-users-db:
+    container_name: pa-users-db
+    logging: *default-logging
+    restart: always
+    build: ./pa-users-db
+    ports:
+      - "27717:27017"
+    volumes:
+      - ./data/mongodb/pa-users-db:/data/db
+    env_file:
+      - ./pa-users-db/.env
+  front:
+    container_name: front
+    logging: *default-logging
+    build: ./pa-not-google-drive
+    volumes:
+      - /apps/pa-not-google-drive:/app
+  pa-nginx-conf:
+    container_name: pa-nginx-conf
+    logging: *default-logging
+    build: ./pa-nginx-conf
+    env_file:
+      - ./pa-nginx-conf/.env
+    ports:
+      - "8080:80"
+    volumes:
+      - ./pa-api-auth/static/swagger:/var/www/api-auth/static/swagger
+      - ./pa-api-users/static:/var/www/api-users/static
+      - ./pa-api-storage/static/swagger:/var/www/api-storage/static/swagger
+      - /apps:/apps
+    depends_on:
+      - pa-api-storage
+      - pa-api-users
+      - pa-api-auth
+      - front
+
